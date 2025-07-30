@@ -1,0 +1,61 @@
+# --- Environnements virtuels Python ---
+env/
+venv/
+venv-stability/
+saas/env/
+backend/venv/
+env-stability/
+
+# --- Node.js ---
+frontend/node_modules/
+node_modules/
+
+# --- Variables d’environnement ---
+.env
+.env.clean
+*.env*
+saas/.env
+backend/.env
+
+# --- Cache Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.tox/
+.coverage
+htmlcov/
+
+# --- Logs et fichiers temporaires ---
+*.log
+*.tmp
+*.swp
+*.bak
+
+# --- Fichiers générés ---
+static/
+saas/static/
+backend/static/
+dist/
+build/
+test_output/
+saas/test_output/
+**/test_output/
+
+# --- Système et IDE ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# --- Jupyter Notebook ---
+.ipynb_checkpoints/
+
+nul
+saas/nul
+
+# --- Cache et fichiers générés par le pipeline ---
+cache/
+saas/cache/
+backend/saas/cache/
+**/cache/

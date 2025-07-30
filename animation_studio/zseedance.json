@@ -1,0 +1,863 @@
+{
+  "name": "GOOD ALIEN SEEDANCE",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "function findSceneEntries(obj) {\n  const scenes = [];\n\n  for (const [key, value] of Object.entries(obj)) {\n    if (key.toLowerCase().startsWith(\"scene\") && typeof value === \"string\") {\n      scenes.push(value);\n    } else if (typeof value === \"object\" && value !== null) {\n      scenes.push(...findSceneEntries(value));\n    }\n  }\n\n  return scenes;\n}\n\nlet output = [];\n\ntry {\n  const inputData = items[0].json;\n  const scenes = findSceneEntries(inputData);\n\n  if (scenes.length === 0) {\n    throw new Error(\"No scene keys found at any level.\");\n  }\n\n  output = scenes.map(scene =\u003E ({ description: scene }));\n} catch (e) {\n  throw new Error(\"Could not extract scenes properly. Details: \" + e.message);\n}\n\nreturn output;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 520],
+      "id": "6328e691-37a6-4c86-a3e9-013459507a40",
+      "name": "Unbundle Prompts"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://queue.fal.run/fal-ai/mmaudio-v2 ",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "= {\n        \"prompt\": \"sound effects: {{ $('Prompts AI Agent').item.json.output.Sound }}. Dramatic, cinematic, strange, ALIEN\",\n        \"duration\": 10,\n        \"video_url\": \"{{ $json.data.outputs[0] }}\"\n  }\n",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 2000
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1360, 660],
+      "id": "132c81b7-3a0c-44f9-b3e8-6a01ee49c869",
+      "name": "Create Sounds",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REDACTED",
+          "name": "REDACTED"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://queue.fal.run/fal-ai/mmaudio-v2/requests/{{ $json.request_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1720, 660],
+      "id": "ff079ff9-5fe4-4e79-b12d-cd6095647480",
+      "name": "Get Sounds",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REDACTED",
+          "name": "REDACTED"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 60
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1520, 660],
+      "id": "aaa2519f-5bb9-4332-9b8d-9217d84a59f6",
+      "name": "Wait for Sounds",
+      "webhookId": "e4ed1bff-4bcf-4eee-88a6-3601b05bb3bf"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  {\n    video_urls: items.map(item =\u003E item.json.video.url)\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 800],
+      "id": "761ab31d-a2fc-41b2-9571-6b1969402dc9",
+      "name": "List Elements"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://queue.fal.run/fal-ai/ffmpeg-api/compose",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\n  \"tracks\": [\n    {\n      \"id\": \"1\",\n      \"type\": \"video\",\n      \"keyframes\": [\n        { \"url\": \"{{ $json.video_urls[0] }}\", \"timestamp\": 0, \"duration\": 10 },\n        { \"url\": \"{{ $json.video_urls[1] }}\", \"timestamp\": 10, \"duration\": 10 },\n        { \"url\": \"{{ $json.video_urls[2] }}\", \"timestamp\": 20, \"duration\": 10 }\n      ]\n    }\n  ]\n}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 2000
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1320, 800],
+      "id": "859b8b0f-53dc-4b03-8bb7-e28428b18465",
+      "name": "Sequence Video",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REDACTED",
+          "name": "REDACTED"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://queue.fal.run/fal-ai/ffmpeg-api/requests/{{ $json.request_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1720, 800],
+      "id": "6a4a5dfe-a4ee-45e5-8d04-f65f2d0c9e82",
+      "name": "Get Final Video",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REDACTED",
+          "name": "REDACTED"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 60
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1520, 800],
+      "id": "d6a273c3-fb85-4844-98fe-69e98d9f23f3",
+      "name": "Wait for Final Video",
+      "webhookId": "b5ea8357-4888-42bf-9cde-3efac56972f9"
+    },
+    {
+      "parameters": {
+
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolThink",
+      "typeVersion": 1,
+      "position": [1860, 240],
+      "id": "0bc101b2-0c1e-42df-84ac-a230123df2a2",
+      "name": "Think"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Give me an idea about\n\n[[  \na visually compelling alien arrival on Earth — in the format:  \n**\"(adjective) (alien form or alien spacecraft) appearing over a (location or object)\"**   \n]]\n\nMake it surreal but grounded in cinematic realism, and heavily related to ALIEN / UFO imaginary.\n\nUse the Think tool to review your output.",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=✅ Prompt 1: Idea Generator (Refined)\nRole: You are an elite creative system that generates hyper-realistic, viral alien arrival concepts for cinematic short films. Your goal is to deliver 1 unique, production-ready video idea that feels real, grounded, and visually stunning.\n\nMUST-HAVE ELEMENTS:\nA clearly visible alien arrival (creature or spacecraft) that touches Earth in some form.\n\nOne or more humans present on site, with attire that blends into the scene (not generic yellow suits). Their role may vary: scientists, soldiers, civilians, cultists, monks, workers, etc.\n\nThe alien or its craft must be original and believable, inspired by Earth culture (e.g., tribal masks, cathedrals, biotech) but never cliché or repeated.\n\nAlways show the alien form or structure emerging or transforming in front of humans.\n\nScene must feel like real footage captured by a professional cinematic crew.\n\nCONTEXT VARIABILITY (High Randomness):\nEnvironment: Include at least one specific Earth feature (e.g., desert salt flat, rusted bridge, Antarctic trench) and avoid repetition of generic \"islands\" or \"mountains.\"\n\nArrival Mode: Could be silent descent, rippling wormhole, bio-extrusion from the earth, magnetic lift from sea, swarm formation, etc.\n\nAlien Form: Describe what it is and what it looks like, clearly. Must be photorealistic, complex, and evoke a physical presence.\n\nHuman Reaction: Mixed — humans might be welcoming, defensive, fearful, or simply executing unknown protocols. Avoid the same expression every time.\n\nRULES:\nNo more than 1 alien concept per idea.\n\nAlways include a short, viral-ready caption, 1 emoji, and exactly 3 hashtags.\n\nUse under 20 words for environment.\n\nAudio should describe arrival: vibrations, hums, reverbs, distortion, crackling energy, etc.\n\nStatus must be \"for production\".\n\nOutput Format:\njson\nCopier\nModifier\n[\n  {\n    \"Caption\": \"🛸 Arrival in slow motion. They weren’t ready. #alienarrival #realityshift #trending\",\n    \"Idea\": \"A towering obsidian spiral craft lands silently beside a melting glacier. Its panels unfold into a humanoid wrapped in kinetic light. Scientists in polar gear observe, frozen.\",\n    \"Environment\": \"Antarctic dusk, glacier fog, low visibility\",\n    \"Sound\": \"Sub-bass pulses, icy wind interference, panel clicks, energy field rising\",\n    \"Status\": \"for production\"\n  }\n]"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.9,
+      "position": [1240, 380],
+      "id": "93935e30-2580-4bb1-b8ce-3001be1efe11",
+      "name": "Ideas AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4.1",
+          "mode": "list",
+          "cachedResultName": "gpt-4.1"
+        },
+        "options": {
+
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [1220, 220],
+      "id": "0ee9724e-a79f-4837-92e5-64a93d9cb992",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "REDACTED",
+          "name": "REDACTED"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Give me 3 video prompts based on the previous idea\n\nUse the Think tool to review your output",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=Role: You are a cinematic prompt generator that produces ultra-realistic alien arrival videos, designed for high-end CGI rendering.\n\nMANDATORY ELEMENTS (for each scene):\nRender the alien subject in motion: landing, unfolding, emerging, interacting, reacting.\n\nClearly render the environment and terrain interaction: fog displacement, dust ripples, metal deformation, water reactions, etc.\n\nUse macro-level technical visuals: motion blur, refraction, magnetism distortion, pulse lighting, kinetic air trails.\n\nInclude at least one human actor placed naturally in the scene. No static figures or copy-paste appearances.\n\nHuman design (gear, clothing) must match the setting (e.g., arctic gear, hazmat, military, tribal garb).\n\nSTYLE:\nAlways write as if describing a real shot, captured by a camera drone or high-end cinematic rig.\n\nUse visual cinematic terms (e.g., slow pan, mid-shot, aerial dolly, reverse zoom).\n\nAvoid poetic language or metaphors. Use scientific or visual realism only.\n\nExplore different phases across 13 scenes: approach, arrival, landing, unfolding, interaction, environment reaction, reveal, aftermath.\n\nINPUTS:\nIdea: The core concept (from Prompt 1)\n\nEnvironment: Short descriptor\n\nSound: Arrival-based audio suggestion\n\nOUTPUT FORMAT:\nmarkdown\nCopier\nModifier\nIdea: \"...\"\nEnvironment: \"...\"\nSound: \"...\"\n\nScene 1: \"...\"\nScene 2: \"...\"\n...\nScene 13: \"...\"\nCOMMON ISSUES TO AVOID:\nNo “floating over a random island.” Use real-world geological details.\n\nDo not reuse the same human model or attire across scenes.\n\nAliens must never be idle or invisible — always do something cinematic.\n\nDon't just describe light shows. Include tactile, interactive phenomena."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.9,
+      "position": [1640, 380],
+      "id": "12a26327-6805-45d6-bfac-fc62049dbbfc",
+      "name": "Prompts AI Agent"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "[\n  {\n    \"Caption\": \"Diver Removes Nets Off Whale 🐋 #whalerescue #marinelife #oceanrescue #seahelpers #love #nature #instagood #explore #viral #savenature #oceanguardians #cleanoceans\",\n    \"Idea\": \"Diver carefully cuts tangled net from distressed whale in open sea\",\n    \"Environment\": \"Open ocean, sunlight beams through water, diver and whale, cinematic realism\",\n    \"Sound\": \"Primary sound description under 15 words\",\n    \"Status\": \"for production\"\n  }\n]\n"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [1680, 220],
+      "id": "327205ed-3c87-4bb3-bd84-63db8bb2b219",
+      "name": "Parser"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [1000, 220],
+      "id": "5be26240-faae-4651-b003-405638fe4ab5",
+      "name": "Schedule Trigger1"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "14e4Ay_GCi-izvUeGxEXvoyrz0BubTXmEsAg-JDPcAaQ",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "1931639450",
+          "mode": "id"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "idea": "={{ $('Log the Idea').first().json.idea }}",
+            "final_output": "={{ $json.video_url }}"
+          },
+          "matchingColumns": [
+            "idea"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "idea",
+              "displayName": "idea",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "caption",
+              "displayName": "caption",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "production",
+              "displayName": "production",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "environment_prompt",
+              "displayName": "environment_prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sound_prompt",
+              "displayName": "sound_prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "final_output",
+              "displayName": "final_output",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1540, 1020],
+      "id": "14b13e76-f5b2-400e-bfa8-c782b4ce33ca",
+      "name": "Log Final Video",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REDACTED",
+          "name": "REDACTED"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "# 🍳 Seedance in n8n \n# (by RoboNuggets)\n## How to Set Up for Your Own Space  \n\n**Author:** Jay E from [robonuggets.com](https://robonuggets.com)\n\nThis guide shows you how to set up this workflow for your own space. Hope you find this of value!\n\n---\n\n## 🔳 Part 1: Set Up OpenAI for Ideation\n1. Go to [OpenAI API Platform](https://platform.openai.com/api-keys)  \n2. Create an account (if you don’t have one).  \n3. Generate an API key.  \n4. Create a credential using that key via the **OpenAI Chat Model** node.\n\n---\n\n## 🔳 Part 2: Set Up the Google Sheet Logger  \n1. Make a copy of the [Google Sheet template](https://docs.google.com/spreadsheets/d/1dCTaSYpjDe7NHmfM3QbhpV4tysqccnHr9Pss7ttFyek/edit?usp=sharing) provided.  \n2. Use it to log ideas and results generated in your workflow.  \n3. Connect the sheet in n8n using the **Google Sheets node** and create a credential if needed.\n\n---\n\n## 🔳 Part 3: Configure Wavespeed and Fal AI \n1. Go to [Fal AI](https://fal.ai) and [Wavespeed AI](https://wavespeed.ai/center/default/invites/O78a5e0f70b844361bf16b7e7d824a831JCvxSemkjSeCfFLT) and sign in.  \n2. Generate your API key in the Settings\n3. In n8n, create new HTTP credentials with **Header Auth** using your keys  \n4. Use this credential in the relevant HTTP Request nodes.\n\n---\n\n## 🔳 Part 4: Customize the System Prompts  \n1. Choose the niche or theme for your content\n2. Edit the user and system prompt in the \"Ideas AI Agent\"\n3. You can also edit the \"Prompts AI Agent\" to match what you need",
+        "height": 1340,
+        "width": 420,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "id": "05c8784c-673f-4345-8b34-2ba07ac980aa",
+      "name": "Sticky Note12"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"Idea\": \"An obsidian rock being sliced with a shimmering knife\",\n  \"Environment\": \"Clean studio table, subtle light reflections\",\n  \"Sound\": \"Crisp slicing, deep grinding, and delicate crumbling\",\n  \"Scene 1\": \"Extreme macro shot: a razor-sharp, polished knife blade presses into the dark, granular surface of an obsidian rock, just beginning to indent.\",\n  \"Scene 2\": \"Close-up: fine, iridescent dust particles erupt from the point of contact as the blade cuts deeper into the obsidian, catching the studio light.\",\n  \"Scene 3\": \"Mid-shot: the knife, held perfectly steady, has formed a shallow, clean groove across the obsidian's shimmering surface, revealing a new, smooth texture.\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.2,
+      "position": [1360, 220],
+      "id": "ca4d352e-19b3-45aa-a172-bf7a28412525",
+      "name": "Parser2"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.wavespeed.ai/api/v3/bytedance/seedance-v1-pro-t2v-480p",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\n  \"aspect_ratio\": \"9:16\",\n  \"duration\": 10,\n  \"prompt\": \"VIDEO THEME: {{ $('Prompts AI Agent').item.json.output.Idea }} | WHAT HAPPENS IN THE VIDEO: {{ $json.description }} | WHERE THE VIDEO IS SHOT: {{ $('Prompts AI Agent').item.json.output.Environment }}\"\n}\n",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 3000
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1320, 520],
+      "id": "980db9d0-816c-4d3f-8cad-3ca23fc07e5c",
+      "name": "Create Clips",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REDACTED",
+          "name": "REDACTED"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api.wavespeed.ai/api/v3/predictions/{{ $json.data.id }}/result",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1940, 580],
+      "id": "0b66ee98-a6a6-4302-a60a-d1d841ca8f14",
+      "name": "Get Clips",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REDACTED",
+          "name": "REDACTED"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "14e4Ay_GCi-izvUeGxEXvoyrz0BubTXmEsAg-JDPcAaQ",
+          "mode": "list",
+          "cachedResultName": "[faire une copie] N8N _ Seedance",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/14e4Ay_GCi-izvUeGxEXvoyrz0BubTXmEsAg-JDPcAaQ/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1931639450,
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/14e4Ay_GCi-izvUeGxEXvoyrz0BubTXmEsAg-JDPcAaQ/edit#gid=1931639450"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "==LIGNE()-1",
+            "idea": "={{ $json.output[0].Idea }}",
+            "caption": "={{ $json.output[0].Caption }}",
+            "production": "={{ $json.output[0].Status }}",
+            "environment_prompt": "={{ $json.output[0].Environment }}",
+            "sound_prompt": "={{ $json.output[0].Sound }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "idea",
+              "displayName": "idea",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "caption",
+              "displayName": "caption",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "production",
+              "displayName": "production",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "environment_prompt",
+              "displayName": "environment_prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "sound_prompt",
+              "displayName": "sound_prompt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "final_output",
+              "displayName": "final_output",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+
+        }
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1520, 380],
+      "id": "42e73f74-c4b9-46e4-b868-6a959ad219ef",
+      "name": "Log the Idea",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REDACTED",
+          "name": "REDACTED"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## | Step 1: Generate Clips",
+        "height": 100,
+        "width": 500,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [680, 520],
+      "id": "9e25461c-7916-4f8b-ad30-67fb06bdc46c",
+      "name": "Sticky Note10"
+    },
+    {
+      "parameters": {
+        "content": "## | Step 2: Generate Sounds\n",
+        "height": 100,
+        "width": 560,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [740, 660],
+      "id": "080e807f-599b-4888-b302-104d35f28b6f",
+      "name": "Sticky Note13"
+    },
+    {
+      "parameters": {
+        "content": "## OUTPUT: Final Video",
+        "height": 100,
+        "width": 500,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [940, 1020],
+      "id": "ccbf21d4-e5a5-41be-af52-fc9e07100513",
+      "name": "Sticky Note9"
+    },
+    {
+      "parameters": {
+        "content": "## | Step 3: Stitch Video",
+        "height": 100,
+        "width": 360,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [820, 800],
+      "id": "70de75b7-411e-4efa-9441-232bb1bea500",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+
+      },
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [1040, 380],
+      "id": "4faed789-b8aa-4122-9bb3-e9ca38772597",
+      "name": "When clicking ‘Test workflow’"
+    },
+    {
+      "parameters": {
+        "amount": 140
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1520, 540],
+      "id": "29169a6f-c3fd-442e-a2c7-92875c207d94",
+      "name": "Wait for clips",
+      "webhookId": "9dbe3dea-f808-4c6c-8b67-df2f37919f32"
+    }
+  ],
+  "pinData": {
+
+  },
+  "connections": {
+    "Unbundle Prompts": {
+      "main": [
+        [
+          {
+            "node": "Create Clips",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Sounds": {
+      "main": [
+        [
+          {
+            "node": "Wait for Sounds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Sounds": {
+      "main": [
+        [
+          {
+            "node": "Get Sounds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Elements": {
+      "main": [
+        [
+          {
+            "node": "Sequence Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sequence Video": {
+      "main": [
+        [
+          {
+            "node": "Wait for Final Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for Final Video": {
+      "main": [
+        [
+          {
+            "node": "Get Final Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Think": {
+      "ai_tool": [
+        [
+          {
+            "node": "Ideas AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          },
+          {
+            "node": "Prompts AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ideas AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Log the Idea",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Ideas AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Prompts AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Ideas AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger1": {
+      "main": [
+        []
+      ]
+    },
+    "Prompts AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Unbundle Prompts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Sounds": {
+      "main": [
+        [
+          {
+            "node": "List Elements",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Final Video": {
+      "main": [
+        [
+          {
+            "node": "Log Final Video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parser2": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Prompts AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Clips": {
+      "main": [
+        [
+          {
+            "node": "Wait for clips",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Clips": {
+      "main": [
+        [
+          {
+            "node": "Create Sounds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log the Idea": {
+      "main": [
+        [
+          {
+            "node": "Prompts AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait for clips": {
+      "main": [
+        [
+          {
+            "node": "Get Clips",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Test workflow’": {
+      "main": [
+        [
+          {
+            "node": "Ideas AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "aacdf7ae-d78b-47a5-beda-f07b2b28347d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e8464850a3871393d9c7942d7f604257a9e9d70ed846ffff0da8feb29420bd40"
+  },
+  "id": "CEYYAZYw9kw5gwge",
+  "tags": []
+}
