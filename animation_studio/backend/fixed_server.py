@@ -65,7 +65,17 @@ def get_themes():
             {"id": "space", "name": "Espace 🚀", "emoji": "🚀"},
             {"id": "ocean", "name": "Océan 🌊", "emoji": "🌊"},
             {"id": "forest", "name": "Forêt 🌳", "emoji": "🌳"},
-            {"id": "magic", "name": "Magie ✨", "emoji": "✨"}
+            {"id": "dinosaurs", "name": "Dinosaures 🦕", "emoji": "🦕"},
+            {"id": "robots", "name": "Robots 🤖", "emoji": "🤖"},
+            {"id": "fairy_tale", "name": "Contes de fées 🏰", "emoji": "🏰"},
+            {"id": "jungle", "name": "Jungle 🌴", "emoji": "🌴"},
+            {"id": "castle", "name": "Château médiéval ⚔️", "emoji": "⚔️"},
+            {"id": "farm", "name": "Ferme 🐄", "emoji": "🐄"},
+            {"id": "circus", "name": "Cirque 🎪", "emoji": "🎪"},
+            {"id": "school", "name": "École 📚", "emoji": "📚"},
+            {"id": "sports", "name": "Sports ⚽", "emoji": "⚽"},
+            {"id": "music", "name": "Musique 🎵", "emoji": "🎵"},
+            {"id": "art", "name": "Art 🎨", "emoji": "��"}
         ]
     }
 

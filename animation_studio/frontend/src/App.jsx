@@ -10,11 +10,20 @@ function App() {
   const [progress, setProgress] = useState(0);
   const [currentStepText, setCurrentStepText] = useState('');
   const [result, setResult] = useState(null);
+  const [costInfo, setCostInfo] = useState(null);
 
-  const durations = [30, 60, 120, 180, 240, 300];
+  const durations = [
+    { value: 30, label: '30 secondes', icon: '⚡' },
+    { value: 60, label: '1 minute', icon: '⏱️' },
+    { value: 120, label: '2 minutes', icon: '⏰' },
+    { value: 180, label: '3 minutes', icon: '🕐' },
+    { value: 240, label: '4 minutes', icon: '🕑' },
+    { value: 300, label: '5 minutes', icon: '🕒' }
+  ];
 
   useEffect(() => {
     loadThemes();
+    loadCosts();
   }, []);
 
   const loadThemes = async () => {
@@ -24,6 +33,16 @@ function App() {
       setThemes(data.themes || []);
     } catch (error) {
       console.error('Erreur:', error);
+    }
+  };
+
+  const loadCosts = async () => {
+    try {
+      const response = await fetch('http://localhost:8011/costs');
+      const data = await response.json();
+      setCostInfo(data);
+    } catch (error) {
+      console.error('Erreur coûts:', error);
     }
   };
 
@@ -50,7 +69,6 @@ function App() {
       const data = await response.json();
       setAnimationId(data.animation_id);
       
-      // Vérifier le progrès
       checkProgress(data.animation_id);
       
     } catch (error) {
@@ -73,7 +91,6 @@ function App() {
         console.error('Erreur:', data.error);
         setCurrentStep('generate');
       } else {
-        // Continuer à vérifier
         setTimeout(() => checkProgress(id), 1500);
       }
     } catch (error) {
@@ -91,6 +108,21 @@ function App() {
     return theme ? theme.name : themeId;
   };
 
+  const getThemeEmoji = (themeId) => {
+    const theme = themes.find(t => t.id === themeId);
+    return theme ? theme.emoji : '🎬';
+  };
+
+  const getDurationInfo = (duration) => {
+    return durations.find(d => d.value === duration);
+  };
+
+  const getEstimatedCost = (duration) => {
+    if (!costInfo) return null;
+    const costKey = `${duration}s`;
+    return costInfo.cost_estimates?.[costKey];
+  };
+
   const restart = () => {
     setCurrentStep('theme');
     setSelectedTheme(null);
@@ -100,19 +132,52 @@ function App() {
     setResult(null);
   };
 
+  const goBack = () => {
+    if (currentStep === 'duration') {
+      setCurrentStep('theme');
+      setSelectedTheme(null);
+    } else if (currentStep === 'generate') {
+      setCurrentStep('duration');
+      setSelectedDuration(null);
+    }
+  };
+
   return (
     <div className="app">
+      {/* Header avec navigation des étapes */}
       <header className="header">
-        <h1>🎬 Animation Studio</h1>
-        <p>Créez des dessins animés magiques pour enfants avec l'IA</p>
+        <div className="header-content">
+          <div className="logo">
+            <span className="logo-icon">🎬</span>
+            <h1>Animation Studio</h1>
+          </div>
+          <div className="step-indicator">
+            <div className={`step ${currentStep === 'theme' ? 'active' : ''} ${['duration', 'generate', 'generating', 'video'].includes(currentStep) ? 'completed' : ''}`}>
+              <span className="step-number">1</span>
+              <span className="step-label">Thème</span>
+            </div>
+            <div className={`step ${currentStep === 'duration' ? 'active' : ''} ${['generate', 'generating', 'video'].includes(currentStep) ? 'completed' : ''}`}>
+              <span className="step-number">2</span>
+              <span className="step-label">Durée</span>
+            </div>
+            <div className={`step ${['generate', 'generating'].includes(currentStep) ? 'active' : ''} ${currentStep === 'video' ? 'completed' : ''}`}>
+              <span className="step-number">3</span>
+              <span className="step-label">Génération</span>
+            </div>
+          </div>
+        </div>
       </header>
 
       <main className="main">
         
         {/* Étape 1: Choix du thème */}
         {currentStep === 'theme' && (
-          <div className="section">
-            <h2>🎨 Choisissez un thème</h2>
+          <div className="section theme-section">
+            <div className="section-header">
+              <h2>🎨 Choisissez votre univers</h2>
+              <p>Découvrez des thèmes magiques pour créer des histoires captivantes</p>
+            </div>
+            
             <div className="themes-grid">
               {themes.map(theme => (
                 <div 
@@ -120,9 +185,9 @@ function App() {
                   className={`theme-card ${selectedTheme === theme.id ? 'selected' : ''}`}
                   onClick={() => handleThemeSelect(theme.id)}
                 >
-                  <div className="theme-icon">{theme.icon}</div>
+                  <div className="theme-emoji">{theme.emoji}</div>
                   <h3>{theme.name}</h3>
-                  <p>{theme.description}</p>
+                  <div className="theme-hover-effect"></div>
                 </div>
               ))}
             </div>
@@ -131,17 +196,37 @@ function App() {
 
         {/* Étape 2: Choix de la durée */}
         {currentStep === 'duration' && (
-          <div className="section">
-            <h2>⏱️ Choisissez la durée</h2>
+          <div className="section duration-section">
+            <div className="section-header">
+              <button className="back-button" onClick={goBack}>
+                ← Retour
+              </button>
+              <h2>⏱️ Choisissez la durée</h2>
+              <p>Combien de temps durera votre animation ?</p>
+            </div>
+            
+            <div className="selected-theme-display">
+              <span className="theme-emoji">{getThemeEmoji(selectedTheme)}</span>
+              <span className="theme-name">{getThemeName(selectedTheme)}</span>
+            </div>
+            
             <div className="duration-options">
               {durations.map(duration => (
-                <button
-                  key={duration}
-                  className={`duration-option ${selectedDuration === duration ? 'selected' : ''}`}
-                  onClick={() => handleDurationSelect(duration)}
+                <div
+                  key={duration.value}
+                  className={`duration-card ${selectedDuration === duration.value ? 'selected' : ''}`}
+                  onClick={() => handleDurationSelect(duration.value)}
                 >
-                  {formatDuration(duration)}
-                </button>
+                  <div className="duration-icon">{duration.icon}</div>
+                  <div className="duration-info">
+                    <h3>{duration.label}</h3>
+                    {getEstimatedCost(duration.value) && (
+                      <p className="cost-info">
+                        ~{getEstimatedCost(duration.value).total_estimated_cost.toFixed(2)}€
+                      </p>
+                    )}
+                  </div>
+                </div>
               ))}
             </div>
           </div>
@@ -149,55 +234,144 @@ function App() {
 
         {/* Étape 3: Prêt à générer */}
         {currentStep === 'generate' && (
-          <div className="section">
-            <h2>🚀 Prêt à générer !</h2>
-            <div className="summary">
-              <p><strong>Thème:</strong> {getThemeName(selectedTheme)}</p>
-              <p><strong>Durée:</strong> {formatDuration(selectedDuration)}</p>
+          <div className="section generate-section">
+            <div className="section-header">
+              <button className="back-button" onClick={goBack}>
+                ← Retour
+              </button>
+              <h2>🚀 Prêt à créer !</h2>
+              <p>Votre animation va prendre vie</p>
             </div>
-            <button className="generate-button" onClick={handleGenerate}>
-              🎬 Générer l'animation
-            </button>
+            
+            <div className="generation-summary">
+              <div className="summary-card">
+                <div className="summary-item">
+                  <span className="summary-icon">{getThemeEmoji(selectedTheme)}</span>
+                  <div className="summary-text">
+                    <h3>Thème</h3>
+                    <p>{getThemeName(selectedTheme)}</p>
+                  </div>
+                </div>
+                
+                <div className="summary-item">
+                  <span className="summary-icon">{getDurationInfo(selectedDuration)?.icon}</span>
+                  <div className="summary-text">
+                    <h3>Durée</h3>
+                    <p>{getDurationInfo(selectedDuration)?.label}</p>
+                  </div>
+                </div>
+                
+                {getEstimatedCost(selectedDuration) && (
+                  <div className="summary-item">
+                    <span className="summary-icon">💰</span>
+                    <div className="summary-text">
+                      <h3>Coût estimé</h3>
+                      <p>{getEstimatedCost(selectedDuration).total_estimated_cost.toFixed(2)}€</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <button className="generate-button" onClick={handleGenerate}>
+                <span className="button-icon">🎬</span>
+                <span className="button-text">Créer l'animation</span>
+              </button>
+            </div>
           </div>
         )}
 
         {/* Étape 4: Génération en cours */}
         {currentStep === 'generating' && (
-          <div className="section">
-            <h2>🎬 Création en cours...</h2>
-            <div className="progress-container">
-              <div className="progress-text">{currentStepText}</div>
-              <div className="progress-bar">
-                <div 
-                  className="progress-fill" 
-                  style={{ width: `${progress}%` }}
-                ></div>
+          <div className="section generating-section">
+            <div className="section-header">
+              <h2>🎬 Création en cours...</h2>
+              <p>L'IA travaille pour créer votre dessin animé</p>
+            </div>
+            
+            <div className="generation-progress">
+              <div className="progress-animation">
+                <div className="loading-spinner"></div>
               </div>
-              <div className="progress-percentage">{progress}%</div>
+              
+              <div className="progress-container">
+                <div className="progress-text">{currentStepText}</div>
+                <div className="progress-bar">
+                  <div 
+                    className="progress-fill" 
+                    style={{ width: `${progress}%` }}
+                  ></div>
+                </div>
+                <div className="progress-percentage">{progress}%</div>
+              </div>
+              
+              <div className="progress-tips">
+                <p>💡 Conseil : La génération peut prendre 5-10 minutes selon la durée</p>
+              </div>
             </div>
           </div>
         )}
 
         {/* Étape 5: Vidéo finale */}
         {currentStep === 'video' && result && (
-          <div className="section">
-            <h2>🎉 Animation terminée !</h2>
-            <div className="video-container">
-              <video 
-                src={result.final_video_url} 
-                controls 
-                width="600" 
-                height="400"
-              >
-                Votre navigateur ne supporte pas les vidéos.
-              </video>
-              <div className="video-info">
-                <p><strong>Thème:</strong> {getThemeName(selectedTheme)}</p>
-                <p><strong>Durée:</strong> {formatDuration(selectedDuration)}</p>
+          <div className="section video-section">
+            <div className="section-header">
+              <h2>🎉 Animation terminée !</h2>
+              <p>Votre dessin animé est prêt</p>
+            </div>
+            
+            <div className="video-result">
+              <div className="video-player">
+                <video 
+                  src={result.final_video_url} 
+                  controls 
+                  poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='600' height='400' viewBox='0 0 600 400'%3E%3Crect width='600' height='400' fill='%23f0f0f0'/%3E%3Ctext x='300' y='200' text-anchor='middle' font-size='24' fill='%23999'%3EChargement...%3C/text%3E%3C/svg%3E"
+                >
+                  Votre navigateur ne supporte pas les vidéos.
+                </video>
               </div>
-              <button onClick={restart} className="restart-button">
-                🔄 Créer une nouvelle animation
-              </button>
+              
+              <div className="video-info">
+                <div className="info-grid">
+                  <div className="info-item">
+                    <span className="info-icon">{getThemeEmoji(selectedTheme)}</span>
+                    <div className="info-text">
+                      <h4>Thème</h4>
+                      <p>{getThemeName(selectedTheme)}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="info-item">
+                    <span className="info-icon">⏱️</span>
+                    <div className="info-text">
+                      <h4>Durée</h4>
+                      <p>{formatDuration(selectedDuration)}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="info-item">
+                    <span className="info-icon">🎬</span>
+                    <div className="info-text">
+                      <h4>Qualité</h4>
+                      <p>HD 16:9</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="video-actions">
+                <button onClick={restart} className="restart-button">
+                  <span className="button-icon">🔄</span>
+                  <span className="button-text">Créer une nouvelle animation</span>
+                </button>
+                
+                <button 
+                  onClick={() => window.open(result.final_video_url, '_blank')} 
+                  className="download-button"
+                >
+                  <span className="button-icon">⬇️</span>
+                  <span className="button-text">Télécharger</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
