@@ -69,10 +69,43 @@ def get_themes():
         ]
     }
 
+@app.get("/costs")
+def get_cost_estimates():
+    """Obtenir les coûts estimés pour toutes les durées"""
+    durations = [30, 60, 120, 180, 240, 300]  # 30s, 1min, 2min, 3min, 4min, 5min
+    
+    cost_estimates = {}
+    for duration in durations:
+        cost_info = calculate_estimated_cost(duration)
+        cost_estimates[f"{duration}s"] = cost_info
+    
+    return {
+        "cost_estimates": cost_estimates,
+        "currency": "EUR",
+        "notes": "Estimations basées sur ~0.30€ par clip Wavespeed (15 secondes)"
+    }
+
+def calculate_estimated_cost(duration: int):
+    """Calculer le coût estimé de la génération"""
+    scenes_count = max(3, duration // 20)  # Optimisation : 1 scène par 20 secondes
+    estimated_cost_per_clip = 0.30  # € par clip Wavespeed
+    total_estimated_cost = scenes_count * estimated_cost_per_clip
+    
+    return {
+        "scenes_count": scenes_count,
+        "cost_per_clip": estimated_cost_per_clip,
+        "total_estimated_cost": total_estimated_cost,
+        "duration_per_scene": duration // scenes_count
+    }
+
 @app.post("/generate")
 def generate_animation(request: dict):
     theme = request.get("theme", "space")
     duration = request.get("duration", 30)
+    
+    # Calculer le coût estimé
+    cost_info = calculate_estimated_cost(duration)
+    print(f"💰 Coût estimé pour {duration}s: {cost_info['total_estimated_cost']:.2f}€ ({cost_info['scenes_count']} scènes)")
     
     # Générer un ID unique
     animation_id = f"anim_{int(time.time())}"
@@ -83,7 +116,8 @@ def generate_animation(request: dict):
         "progress": 0,
         "current_step": "🚀 Démarrage de la génération...",
         "theme": theme,
-        "duration": duration
+        "duration": duration,
+        "cost_estimate": cost_info
     }
     
     print(f"🎬 Nouvelle génération: {animation_id} - Thème: {theme} - Durée: {duration}s")
@@ -96,7 +130,11 @@ def generate_animation(request: dict):
     thread.daemon = True
     thread.start()
     
-    return {"animation_id": animation_id, "status": "started"}
+    return {
+        "animation_id": animation_id, 
+        "status": "started",
+        "cost_estimate": cost_info
+    }
 
 def real_generation_process(animation_id: str, theme: str, duration: int):
     """Processus de génération COMPLET suivant zseedance.json"""
@@ -169,12 +207,15 @@ def real_generation_process(animation_id: str, theme: str, duration: int):
         task["current_step"] = "❌ Erreur génération"
 
 def generate_complete_story_sync(theme: str, duration: int):
-    """Générer une histoire complète et cohérente avec OpenAI (niveau professionnel)"""
+    """Générer une histoire complète et cohérente avec OpenAI (optimisée pour les coûts)"""
     
     # Configuration OpenAI
-    openai.api_key = OPENAI_API_KEY
+    client = openai.OpenAI(api_key=OPENAI_API_KEY)
     
-    # Prompt pour générer une histoire de niveau professionnel
+    # Optimisation : moins de scènes mais plus longues
+    scenes_count = max(3, duration // 20)  # 1 scène par 20 secondes
+    
+    # Prompt pour générer une histoire de niveau professionnel (optimisée)
     story_prompt = f"""Crée une histoire d'animation de {duration} secondes sur le thème "{theme}" avec une structure narrative complète comme dans les dessins animés professionnels.
 
 L'histoire doit avoir :
@@ -183,16 +224,33 @@ L'histoire doit avoir :
 - Un climax (moment de tension maximale)
 - Une résolution (fin heureuse et satisfaisante)
 
+IMPORTANT : Divise l'histoire en exactement {scenes_count} scènes de {duration // scenes_count} secondes chacune pour optimiser les coûts tout en gardant la qualité narrative.
+
+CRUCIAL : Assure une cohérence visuelle parfaite entre toutes les scènes :
+- Les personnages doivent avoir la même apparence dans toutes les scènes
+- L'univers visuel doit être cohérent (même style, couleurs, décors)
+- Les transitions entre scènes doivent être fluides
+- Utilise des descriptions visuelles très précises et cohérentes
+
+IMPORTANT : Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après.
+
 Format de réponse JSON :
 {{
     "title": "Titre accrocheur de l'histoire",
     "summary": "Résumé complet de l'histoire avec tous les éléments narratifs",
-    "characters": [
+    "universe_description": "Description détaillée de l'univers visuel (style, couleurs, ambiance, décors)",
+    "main_character": {{
+        "name": "Nom du personnage principal",
+        "appearance": "Description physique très détaillée (âge, vêtements, couleurs, style)",
+        "personality": "Caractère et comportement du personnage",
+        "role": "Rôle dans l'histoire"
+    }},
+    "supporting_characters": [
         {{
-            "name": "Nom du personnage",
-            "description": "Description physique et personnalité",
-            "role": "Rôle dans l'histoire (protagoniste, antagoniste, etc.)",
-            "arc": "Évolution du personnage dans l'histoire"
+            "name": "Nom du personnage secondaire",
+            "appearance": "Description physique très détaillée",
+            "personality": "Caractère du personnage",
+            "role": "Rôle dans l'histoire"
         }}
     ],
     "scenes": [
@@ -200,112 +258,105 @@ Format de réponse JSON :
             "scene_number": 1,
             "title": "Titre de la scène",
             "description": "Description détaillée de ce qui se passe",
-            "visual_elements": "Éléments visuels spécifiques (décors, actions, expressions)",
+            "visual_elements": "Éléments visuels spécifiques (décors, actions, expressions) - TRÈS DÉTAILLÉ",
             "dialogue": "Dialogues ou narration pour cette scène",
             "emotions": "Émotions des personnages et ambiance",
-            "duration": {duration // max(4, duration // 8)},
+            "duration": {duration // scenes_count},
             "narrative_purpose": "Rôle de cette scène dans l'histoire (exposition, développement, etc.)",
-            "transition": "Comment cette scène se connecte à la suivante"
+            "transition": "Comment cette scène se connecte à la suivante",
+            "camera_angle": "Angle de caméra et perspective",
+            "lighting": "Éclairage et ambiance visuelle"
         }}
     ],
     "theme": "{theme}",
     "total_duration": {duration},
     "moral": "Message ou leçon de l'histoire",
-    "target_audience": "Enfants de 3-8 ans"
+    "target_audience": "Enfants de 3-8 ans",
+    "visual_style": "Style visuel cohérent pour toute l'animation (couleurs, technique, ambiance)"
 }}
 
-L'histoire doit être captivante, avec des personnages attachants, des émotions fortes, et une progression logique qui maintient l'intérêt du début à la fin."""
+L'histoire doit être captivante, avec des personnages attachants, des émotions fortes, et une progression logique qui maintient l'intérêt du début à la fin. Chaque scène doit être suffisamment riche pour justifier sa durée plus longue. LA COHÉRENCE VISUELLE EST PRIMORDIALE."""
 
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model=TEXT_MODEL,
             messages=[
-                {"role": "system", "content": "Tu es un scénariste professionnel spécialisé dans les dessins animés pour enfants. Tu crées des histoires avec une structure narrative complète, des personnages mémorables, et des émotions authentiques."},
+                {"role": "system", "content": "Tu es un scénariste professionnel spécialisé dans les dessins animés pour enfants. Tu crées des histoires avec une structure narrative complète, des personnages mémorables, et des émotions authentiques. Tu accordes une importance capitale à la cohérence visuelle entre toutes les scènes. Tu réponds UNIQUEMENT avec du JSON valide, sans texte avant ou après."},
                 {"role": "user", "content": story_prompt}
             ],
-            max_tokens=3000,
+            max_tokens=4000,
             temperature=0.7
         )
         
         story_text = response.choices[0].message.content
         print(f"📝 Histoire professionnelle générée: {story_text[:300]}...")
         
-        # Parser la réponse JSON
+        # Nettoyer et parser la réponse JSON
         import json
+        import re
+        
+        # Nettoyer le texte pour extraire le JSON
+        cleaned_text = story_text.strip()
+        
+        # Supprimer les backticks et "json" si présents
+        cleaned_text = re.sub(r'^```json\s*', '', cleaned_text)
+        cleaned_text = re.sub(r'\s*```$', '', cleaned_text)
+        cleaned_text = re.sub(r'^```\s*', '', cleaned_text)
+        cleaned_text = re.sub(r'\s*```$', '', cleaned_text)
+        
+        # Essayer de parser le JSON
         try:
-            story_data = json.loads(story_text)
+            story_data = json.loads(cleaned_text)
+            print(f"✅ JSON parsé avec succès")
             return story_data
-        except json.JSONDecodeError:
-            print(f"⚠️  Erreur parsing JSON, utilisation du fallback")
-            return create_professional_fallback_story(theme, duration)
+        except json.JSONDecodeError as e:
+            print(f"⚠️  Première tentative de parsing JSON échouée: {e}")
+            
+            # Tentative de correction : chercher le JSON dans le texte
+            json_match = re.search(r'\{.*\}', cleaned_text, re.DOTALL)
+            if json_match:
+                try:
+                    corrected_json = json_match.group(0)
+                    story_data = json.loads(corrected_json)
+                    print(f"✅ JSON corrigé et parsé avec succès")
+                    return story_data
+                except json.JSONDecodeError as e2:
+                    print(f"⚠️  Correction JSON échouée: {e2}")
+            
+            # Dernière tentative : essayer de corriger les erreurs communes
+            try:
+                # Remplacer les guillemets mal échappés
+                corrected_text = cleaned_text.replace('"', '"').replace('"', '"')
+                corrected_text = re.sub(r',\s*}', '}', corrected_text)  # Virgules trailing
+                corrected_text = re.sub(r',\s*]', ']', corrected_text)  # Virgules trailing dans arrays
+                
+                story_data = json.loads(corrected_text)
+                print(f"✅ JSON corrigé avec succès")
+                return story_data
+            except json.JSONDecodeError as e3:
+                print(f"💥 Toutes les tentatives de parsing JSON ont échoué: {e3}")
+                print(f"📝 Texte original: {cleaned_text[:500]}...")
+                raise Exception("Impossible de parser la réponse JSON d'OpenAI")
             
     except Exception as e:
-        print(f"⚠️  Erreur génération histoire OpenAI: {e}")
-        return create_professional_fallback_story(theme, duration)
-
-def create_professional_fallback_story(theme: str, duration: int):
-    """Histoire de fallback de niveau professionnel"""
-    scenes_count = max(4, duration // 8)  # Plus de scènes pour une meilleure structure
-    
-    # Créer une structure narrative complète
-    scenes = []
-    for i in range(scenes_count):
-        if i == 0:
-            # Exposition
-            scene_type = "exposition"
-            description = f"Introduction du monde {theme} et des personnages principaux"
-        elif i == scenes_count - 1:
-            # Résolution
-            scene_type = "resolution"
-            description = f"Fin heureuse de l'aventure dans le monde {theme}"
-        elif i == scenes_count // 2:
-            # Climax
-            scene_type = "climax"
-            description = f"Le moment le plus intense de l'histoire {theme}"
-        else:
-            # Développement
-            scene_type = "development"
-            description = f"L'histoire se développe dans le monde {theme}"
-        
-        scenes.append({
-            "scene_number": i + 1,
-            "title": f"Scène {i+1}: {scene_type.title()}",
-            "description": description,
-            "visual_elements": f"Éléments visuels riches pour la scène {i+1}",
-            "dialogue": f"Dialogue ou narration pour la scène {i+1}",
-            "emotions": "Émotions des personnages",
-            "duration": duration // scenes_count,
-            "narrative_purpose": scene_type,
-            "transition": f"Transition vers la scène suivante"
-        })
-    
-    return {
-        "title": f"L'Aventure {theme.title()}",
-        "summary": f"Une histoire captivante dans le monde {theme} avec des personnages attachants et une aventure mémorable",
-        "characters": [
-            {
-                "name": "Héros",
-                "description": "Personnage principal courageux et amical",
-                "role": "protagoniste",
-                "arc": "Évolution vers la maturité et le courage"
-            }
-        ],
-        "scenes": scenes,
-        "theme": theme,
-        "total_duration": duration,
-        "moral": "L'amitié et le courage triomphent toujours",
-        "target_audience": "Enfants de 3-8 ans"
-    }
+        print(f"💥 Erreur génération histoire OpenAI: {e}")
+        raise Exception(f"Génération d'histoire échouée: {e}")
 
 def generate_detailed_scenes_sync(story: dict, theme: str, duration: int):
-    """Générer des scènes détaillées basées sur l'histoire professionnelle"""
+    """Générer des scènes détaillées basées sur l'histoire professionnelle (optimisée)"""
     
     if "scenes" in story and story["scenes"]:
         # Utiliser les scènes générées par OpenAI avec tous les détails
         scenes = []
+        
+        # Extraire les informations de cohérence visuelle
+        universe_desc = story.get("universe_description", "")
+        main_char = story.get("main_character", {})
+        visual_style = story.get("visual_style", "")
+        
         for scene_data in story["scenes"]:
-            # Créer un prompt visuel riche avec tous les éléments narratifs
-            visual_prompt = f"""{CARTOON_STYLE}, {scene_data['title']}, {scene_data['description']}, {scene_data['visual_elements']}, {scene_data['emotions']}, {scene_data['dialogue']}, {scene_data['narrative_purpose']}, {scene_data['transition']}, colorful, high quality animation, children friendly, professional storytelling, coherent narrative flow"""
+            # Créer un prompt visuel riche avec cohérence parfaite
+            visual_prompt = f"""{CARTOON_STYLE}, {scene_data['title']}, {scene_data['description']}, {scene_data['visual_elements']}, {scene_data['emotions']}, {scene_data['dialogue']}, {scene_data['narrative_purpose']}, {scene_data['transition']}, {universe_desc}, {main_char.get('appearance', '')}, {visual_style}, colorful, high quality animation, children friendly, professional storytelling, coherent narrative flow, consistent character design, consistent visual style"""
             
             scenes.append({
                 "id": scene_data["scene_number"],
@@ -316,24 +367,14 @@ def generate_detailed_scenes_sync(story: dict, theme: str, duration: int):
                 "dialogue": scene_data.get("dialogue", ""),
                 "emotions": scene_data.get("emotions", ""),
                 "narrative_purpose": scene_data.get("narrative_purpose", ""),
-                "transition": scene_data.get("transition", "")
+                "transition": scene_data.get("transition", ""),
+                "camera_angle": scene_data.get("camera_angle", ""),
+                "lighting": scene_data.get("lighting", "")
             })
         return scenes
     else:
-        # Fallback amélioré
-        scenes_count = max(4, duration // 8)
-        scenes = []
-        for i in range(scenes_count):
-            scene_type = ["exposition", "development", "climax", "resolution"][min(i, 3)]
-            scenes.append({
-                "id": i + 1,
-                "title": f"Scène {i+1}: {scene_type.title()}",
-                "description": f"Scène {i+1} de l'histoire {theme} - {scene_type}",
-                "duration": duration / scenes_count,
-                "visual_prompt": f"{CARTOON_STYLE}, scène {i+1} de l'histoire {theme}, {scene_type}, colorful, high quality animation, children friendly, professional storytelling, coherent narrative flow",
-                "narrative_purpose": scene_type
-            })
-        return scenes
+        # Si pas de scènes dans l'histoire, créer une structure minimale
+        raise Exception("Aucune scène trouvée dans l'histoire générée")
 
 def generate_video_clips_sync(scenes: list, theme: str):
     """Générer les clips vidéo pour chaque scène"""
@@ -411,15 +452,19 @@ def wait_for_wavespeed_sync(prediction_id: str, headers: dict):
     raise Exception("Timeout Wavespeed après 10 minutes - génération échouée")
 
 def generate_single_video_clip_sync(prompt: str, theme: str):
-    """Générer un seul clip vidéo avec Wavespeed (format paysage)"""
+    """Générer un seul clip vidéo avec Wavespeed (optimisé pour les coûts)"""
     headers = {
         "Authorization": f"Bearer {WAVESPEED_API_KEY}",
         "Content-Type": "application/json"
     }
+    
+    # Améliorer le prompt avec des instructions de cohérence
+    enhanced_prompt = f"{prompt}, consistent character design, same visual style throughout, coherent animation, smooth transitions, professional cartoon quality"
+    
     data = {
         "aspect_ratio": "16:9",  # Paysage
-        "duration": 10,
-        "prompt": prompt[:500]
+        "duration": 10,  # Correction : 10 secondes maximum pour Wavespeed
+        "prompt": enhanced_prompt[:500]  # Limiter à 500 caractères
     }
     try:
         response = requests.post(
