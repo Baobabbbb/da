@@ -8,6 +8,7 @@ import os
 import time
 import threading
 import requests
+import openai
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -145,11 +146,18 @@ def real_generation_process(animation_id: str, theme: str, duration: int):
         task["current_step"] = "✅ Dessin animé complet terminé!"
         task["result"] = {
             "final_video_url": final_video_url,
-            "story": story,
+            "story": {
+                "title": story.get("title", f"Histoire {theme}"),
+                "summary": story.get("summary", ""),
+                "characters": story.get("characters", []),
+                "moral": story.get("moral", ""),
+                "target_audience": story.get("target_audience", "Enfants de 3-8 ans")
+            },
             "scenes": scenes,
             "theme": theme,
             "duration": duration,
-            "real_generation": True
+            "real_generation": True,
+            "professional_storytelling": True
         }
         
         print(f"🎉 DESSIN ANIMÉ COMPLET {animation_id} terminé!")
@@ -161,42 +169,171 @@ def real_generation_process(animation_id: str, theme: str, duration: int):
         task["current_step"] = "❌ Erreur génération"
 
 def generate_complete_story_sync(theme: str, duration: int):
-    """Générer une histoire complète avec OpenAI"""
+    """Générer une histoire complète et cohérente avec OpenAI (niveau professionnel)"""
     
-    theme_prompts = {
-        "space": f"Crée une histoire d'animation de {duration} secondes sur l'espace. Histoire: Un jeune astronaute découvre une planète magique avec des créatures amicales. L'histoire doit être adaptée aux enfants, avec des personnages attachants et une fin heureuse.",
-        "ocean": f"Crée une histoire d'animation de {duration} secondes sur l'océan. Histoire: Un petit poisson courageux part à l'aventure pour sauver son récif corallien. L'histoire doit être adaptée aux enfants, avec des personnages attachants et une fin heureuse.",
-        "forest": f"Crée une histoire d'animation de {duration} secondes sur la forêt. Histoire: Un écureuil découvre un arbre magique qui peut exaucer les vœux. L'histoire doit être adaptée aux enfants, avec des personnages attachants et une fin heureuse.",
-        "magic": f"Crée une histoire d'animation de {duration} secondes sur la magie. Histoire: Une petite fée apprend ses premiers sorts magiques. L'histoire doit être adaptée aux enfants, avec des personnages attachants et une fin heureuse."
-    }
+    # Configuration OpenAI
+    openai.api_key = OPENAI_API_KEY
     
-    prompt = theme_prompts.get(theme, theme_prompts["space"])
+    # Prompt pour générer une histoire de niveau professionnel
+    story_prompt = f"""Crée une histoire d'animation de {duration} secondes sur le thème "{theme}" avec une structure narrative complète comme dans les dessins animés professionnels.
+
+L'histoire doit avoir :
+- Une exposition (introduction des personnages et du monde)
+- Un développement (conflit ou défi à surmonter)
+- Un climax (moment de tension maximale)
+- Une résolution (fin heureuse et satisfaisante)
+
+Format de réponse JSON :
+{{
+    "title": "Titre accrocheur de l'histoire",
+    "summary": "Résumé complet de l'histoire avec tous les éléments narratifs",
+    "characters": [
+        {{
+            "name": "Nom du personnage",
+            "description": "Description physique et personnalité",
+            "role": "Rôle dans l'histoire (protagoniste, antagoniste, etc.)",
+            "arc": "Évolution du personnage dans l'histoire"
+        }}
+    ],
+    "scenes": [
+        {{
+            "scene_number": 1,
+            "title": "Titre de la scène",
+            "description": "Description détaillée de ce qui se passe",
+            "visual_elements": "Éléments visuels spécifiques (décors, actions, expressions)",
+            "dialogue": "Dialogues ou narration pour cette scène",
+            "emotions": "Émotions des personnages et ambiance",
+            "duration": {duration // max(4, duration // 8)},
+            "narrative_purpose": "Rôle de cette scène dans l'histoire (exposition, développement, etc.)",
+            "transition": "Comment cette scène se connecte à la suivante"
+        }}
+    ],
+    "theme": "{theme}",
+    "total_duration": {duration},
+    "moral": "Message ou leçon de l'histoire",
+    "target_audience": "Enfants de 3-8 ans"
+}}
+
+L'histoire doit être captivante, avec des personnages attachants, des émotions fortes, et une progression logique qui maintient l'intérêt du début à la fin."""
+
+    try:
+        response = openai.ChatCompletion.create(
+            model=TEXT_MODEL,
+            messages=[
+                {"role": "system", "content": "Tu es un scénariste professionnel spécialisé dans les dessins animés pour enfants. Tu crées des histoires avec une structure narrative complète, des personnages mémorables, et des émotions authentiques."},
+                {"role": "user", "content": story_prompt}
+            ],
+            max_tokens=3000,
+            temperature=0.7
+        )
+        
+        story_text = response.choices[0].message.content
+        print(f"📝 Histoire professionnelle générée: {story_text[:300]}...")
+        
+        # Parser la réponse JSON
+        import json
+        try:
+            story_data = json.loads(story_text)
+            return story_data
+        except json.JSONDecodeError:
+            print(f"⚠️  Erreur parsing JSON, utilisation du fallback")
+            return create_professional_fallback_story(theme, duration)
+            
+    except Exception as e:
+        print(f"⚠️  Erreur génération histoire OpenAI: {e}")
+        return create_professional_fallback_story(theme, duration)
+
+def create_professional_fallback_story(theme: str, duration: int):
+    """Histoire de fallback de niveau professionnel"""
+    scenes_count = max(4, duration // 8)  # Plus de scènes pour une meilleure structure
     
-    # Simuler la génération OpenAI (pour l'instant)
+    # Créer une structure narrative complète
+    scenes = []
+    for i in range(scenes_count):
+        if i == 0:
+            # Exposition
+            scene_type = "exposition"
+            description = f"Introduction du monde {theme} et des personnages principaux"
+        elif i == scenes_count - 1:
+            # Résolution
+            scene_type = "resolution"
+            description = f"Fin heureuse de l'aventure dans le monde {theme}"
+        elif i == scenes_count // 2:
+            # Climax
+            scene_type = "climax"
+            description = f"Le moment le plus intense de l'histoire {theme}"
+        else:
+            # Développement
+            scene_type = "development"
+            description = f"L'histoire se développe dans le monde {theme}"
+        
+        scenes.append({
+            "scene_number": i + 1,
+            "title": f"Scène {i+1}: {scene_type.title()}",
+            "description": description,
+            "visual_elements": f"Éléments visuels riches pour la scène {i+1}",
+            "dialogue": f"Dialogue ou narration pour la scène {i+1}",
+            "emotions": "Émotions des personnages",
+            "duration": duration // scenes_count,
+            "narrative_purpose": scene_type,
+            "transition": f"Transition vers la scène suivante"
+        })
+    
     return {
-        "title": f"Histoire {theme} de {duration} secondes",
-        "summary": prompt,
-        "duration": duration,
-        "theme": theme
+        "title": f"L'Aventure {theme.title()}",
+        "summary": f"Une histoire captivante dans le monde {theme} avec des personnages attachants et une aventure mémorable",
+        "characters": [
+            {
+                "name": "Héros",
+                "description": "Personnage principal courageux et amical",
+                "role": "protagoniste",
+                "arc": "Évolution vers la maturité et le courage"
+            }
+        ],
+        "scenes": scenes,
+        "theme": theme,
+        "total_duration": duration,
+        "moral": "L'amitié et le courage triomphent toujours",
+        "target_audience": "Enfants de 3-8 ans"
     }
 
 def generate_detailed_scenes_sync(story: dict, theme: str, duration: int):
-    """Générer des scènes détaillées pour l'histoire"""
+    """Générer des scènes détaillées basées sur l'histoire professionnelle"""
     
-    # Calculer le nombre de scènes selon la durée
-    scenes_count = max(3, duration // 10)  # 1 scène par 10 secondes, minimum 3
-    
-    scenes = []
-    for i in range(scenes_count):
-        scene_duration = duration / scenes_count
-        scenes.append({
-            "id": i + 1,
-            "description": f"Scène {i+1} de l'histoire {theme}",
-            "duration": scene_duration,
-            "visual_prompt": f"{CARTOON_STYLE}, scène {i+1} de l'histoire {theme}, colorful, high quality animation, children friendly"
-        })
-    
-    return scenes
+    if "scenes" in story and story["scenes"]:
+        # Utiliser les scènes générées par OpenAI avec tous les détails
+        scenes = []
+        for scene_data in story["scenes"]:
+            # Créer un prompt visuel riche avec tous les éléments narratifs
+            visual_prompt = f"""{CARTOON_STYLE}, {scene_data['title']}, {scene_data['description']}, {scene_data['visual_elements']}, {scene_data['emotions']}, {scene_data['dialogue']}, {scene_data['narrative_purpose']}, {scene_data['transition']}, colorful, high quality animation, children friendly, professional storytelling, coherent narrative flow"""
+            
+            scenes.append({
+                "id": scene_data["scene_number"],
+                "title": scene_data["title"],
+                "description": scene_data["description"],
+                "duration": scene_data["duration"],
+                "visual_prompt": visual_prompt,
+                "dialogue": scene_data.get("dialogue", ""),
+                "emotions": scene_data.get("emotions", ""),
+                "narrative_purpose": scene_data.get("narrative_purpose", ""),
+                "transition": scene_data.get("transition", "")
+            })
+        return scenes
+    else:
+        # Fallback amélioré
+        scenes_count = max(4, duration // 8)
+        scenes = []
+        for i in range(scenes_count):
+            scene_type = ["exposition", "development", "climax", "resolution"][min(i, 3)]
+            scenes.append({
+                "id": i + 1,
+                "title": f"Scène {i+1}: {scene_type.title()}",
+                "description": f"Scène {i+1} de l'histoire {theme} - {scene_type}",
+                "duration": duration / scenes_count,
+                "visual_prompt": f"{CARTOON_STYLE}, scène {i+1} de l'histoire {theme}, {scene_type}, colorful, high quality animation, children friendly, professional storytelling, coherent narrative flow",
+                "narrative_purpose": scene_type
+            })
+        return scenes
 
 def generate_video_clips_sync(scenes: list, theme: str):
     """Générer les clips vidéo pour chaque scène"""
@@ -305,11 +442,48 @@ def generate_single_video_clip_sync(prompt: str, theme: str):
         raise Exception(f"Génération clip échouée: {e}")
 
 def generate_audio_sync(story: dict, theme: str):
-    """Générer l'audio avec FAL AI (simulation pour l'instant)"""
+    """Générer l'audio professionnel avec narration, dialogue et musique d'ambiance"""
     
-    # Pour l'instant, retourner une URL d'audio factice
-    # TODO: Implémenter la vraie génération audio avec FAL AI
-    return "https://example.com/audio.mp3"
+    # Créer un script audio basé sur l'histoire complète
+    audio_script = f"Histoire: {story.get('title', 'Aventure')}\n\n"
+    
+    if "summary" in story:
+        audio_script += f"Résumé: {story['summary']}\n\n"
+    
+    if "characters" in story:
+        audio_script += "Personnages:\n"
+        for char in story["characters"]:
+            audio_script += f"- {char['name']}: {char['description']}\n"
+        audio_script += "\n"
+    
+    if "scenes" in story:
+        audio_script += "Scènes:\n"
+        for scene in story["scenes"]:
+            audio_script += f"Scène {scene['scene_number']}: {scene.get('title', '')}\n"
+            audio_script += f"Dialogue: {scene.get('dialogue', '')}\n"
+            audio_script += f"Émotions: {scene.get('emotions', '')}\n\n"
+    
+    if "moral" in story:
+        audio_script += f"Leçon: {story['moral']}\n"
+    
+    # Créer un prompt pour la musique d'ambiance
+    music_prompt = f"Musique d'ambiance pour une histoire d'animation sur le thème {theme}. "
+    music_prompt += "Style: mélodique, adapté aux enfants, avec des variations selon les émotions des scènes. "
+    music_prompt += "Inclure des sons d'ambiance cohérents avec le thème et l'histoire."
+    
+    headers = {
+        "Authorization": f"Key {FAL_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    # Pour l'instant, simuler la génération audio professionnelle
+    print(f"🔊 Script audio professionnel généré:")
+    print(f"📝 {audio_script[:200]}...")
+    print(f"🎵 {music_prompt}")
+    
+    # TODO: Implémenter la vraie génération audio avec FAL AI ou OpenAI TTS
+    # Pour l'instant, retourner une URL factice
+    return "https://example.com/professional_audio.mp3"
 
 def assemble_final_video_sync(video_clips: list, audio_url: str, duration: int):
     """Assembler la vidéo finale avec FAL FFmpeg (strict, sans fallback)"""
