@@ -208,6 +208,11 @@ def real_generation_process(animation_id: str, theme: str, duration: int):
             "professional_storytelling": True
         }
         
+        # Mise à jour du statut final
+        task["status"] = "completed"
+        task["progress"] = 100
+        task["current_step"] = "✅ Dessin animé complet terminé!"
+        
         print(f"🎉 DESSIN ANIMÉ COMPLET {animation_id} terminé!")
         
     except Exception as e:
@@ -637,6 +642,22 @@ def wait_for_fal_ffmpeg_simple(request_id: str, headers: dict):
             time.sleep(5)
     raise Exception("Timeout FAL FFmpeg")
 
+@app.get("/themes")
+def get_themes():
+    """Retourne les thèmes et durées disponibles pour FRIDAY"""
+    themes = {
+        "space": {"name": "Space", "description": "Aventure spatiale", "icon": "🚀"},
+        "nature": {"name": "Nature", "description": "Aventure nature", "icon": "🌳"},
+        "adventure": {"name": "Adventure", "description": "Quête héroïque", "icon": "🏰"},
+        "animals": {"name": "Animals", "description": "Histoire d'animaux", "icon": "🐾"},
+        "magic": {"name": "Magic", "description": "Conte magique", "icon": "✨"},
+        "friendship": {"name": "Friendship", "description": "Histoire d'amitié", "icon": "🤝"}
+    }
+    
+    durations = [30, 60, 120, 180, 240, 300]
+    
+    return {"themes": themes, "durations": durations}
+
 @app.get("/status/{animation_id}")
 def get_status(animation_id: str):
     if animation_id not in generation_tasks:
@@ -650,4 +671,4 @@ if __name__ == "__main__":
     print(f"🔑 OpenAI: {'✅' if OPENAI_API_KEY else '❌'}")
     print(f"🔑 Wavespeed: {'✅' if WAVESPEED_API_KEY else '❌'}")
     print(f"🔑 FAL: {'✅' if FAL_API_KEY else '❌'}")
-    uvicorn.run(app, host="0.0.0.0", port=8011) 
+    uvicorn.run(app, host="0.0.0.0", port=8012) 

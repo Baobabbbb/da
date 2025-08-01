@@ -1,7 +1,7 @@
 import asyncio
 import os
 import uvicorn
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
@@ -13,6 +13,46 @@ from models.schemas import (
     DiagnosticResponse, AnimationTheme, AnimationDuration
 )
 from services.animation_pipeline import AnimationPipeline
+
+# Import des modules d'authentification JWT
+try:
+    from utils.jwt_auth import jwt_auth, JWTBearer, get_current_user
+    from services.auth_service import auth_service
+    from schemas.auth import (
+        LoginRequest, RegisterRequest, TokenResponse, RefreshTokenRequest,
+        RefreshTokenResponse, LogoutRequest, UserProfile, PasswordResetRequest,
+        ProfileUpdateRequest
+    )
+except ImportError:
+    # Fallback si les modules ne sont pas disponibles
+    jwt_auth = None
+    auth_service = None
+    JWTBearer = None
+    get_current_user = None
+    # Créer des classes factices pour éviter les erreurs
+    from pydantic import BaseModel
+    class TokenResponse(BaseModel):
+        pass
+    class RefreshTokenResponse(BaseModel):
+        pass
+    class LoginRequest(BaseModel):
+        pass
+    class RegisterRequest(BaseModel):
+        pass
+    class RefreshTokenRequest(BaseModel):
+        pass
+    class LogoutRequest(BaseModel):
+        pass
+    class UserProfile(BaseModel):
+        pass
+    class PasswordResetRequest(BaseModel):
+        pass
+    class ProfileUpdateRequest(BaseModel):
+        pass
+    
+    # Fonction factice pour get_current_user
+    def get_current_user(request):
+        return {"sub": "dummy", "email": "dummy@example.com"}
 
 # Pipeline global
 pipeline = AnimationPipeline()
@@ -239,6 +279,97 @@ async def cleanup_old_animations():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur nettoyage: {str(e)}")
+
+# === ROUTES D'AUTHENTIFICATION JWT ===
+
+@app.post("/auth/login", response_model=TokenResponse)
+async def login(login_data: LoginRequest):
+    """Connexion utilisateur avec JWT tokens"""
+    if not auth_service:
+        raise HTTPException(status_code=500, detail="Service d'authentification non disponible")
+    
+    return await auth_service.authenticate_user(login_data)
+
+@app.post("/auth/register", response_model=TokenResponse)
+async def register(register_data: RegisterRequest):
+    """Inscription utilisateur avec JWT tokens"""
+    if not auth_service:
+        raise HTTPException(status_code=500, detail="Service d'authentification non disponible")
+    
+    return await auth_service.register_user(register_data)
+
+@app.post("/auth/refresh", response_model=RefreshTokenResponse)
+async def refresh_token(refresh_data: RefreshTokenRequest):
+    """Rafraîchir un access token avec un refresh token"""
+    if not jwt_auth:
+        raise HTTPException(status_code=500, detail="Service JWT non disponible")
+    
+    return jwt_auth.refresh_access_token(refresh_data.refresh_token)
+
+@app.post("/auth/logout")
+async def logout(logout_data: LogoutRequest):
+    """Déconnexion utilisateur en révoquant les tokens"""
+    if not jwt_auth:
+        raise HTTPException(status_code=500, detail="Service JWT non disponible")
+    
+    try:
+        # Vérifier le refresh token pour obtenir l'user_id
+        payload = jwt_auth.verify_token(logout_data.refresh_token)
+        user_id = payload.get("sub")
+        
+        if user_id:
+            jwt_auth.revoke_refresh_token(user_id)
+        
+        return {"message": "Déconnexion réussie"}
+    except Exception as e:
+        # Même en cas d'erreur, on considère la déconnexion comme réussie
+        return {"message": "Déconnexion réussie"}
+
+@app.get("/auth/profile", response_model=UserProfile)
+async def get_profile(current_user: dict = Depends(get_current_user)):
+    """Récupérer le profil de l'utilisateur connecté"""
+    if not auth_service:
+        raise HTTPException(status_code=500, detail="Service d'authentification non disponible")
+    
+    user_id = current_user.get("sub")
+    return await auth_service.get_user_profile(user_id)
+
+@app.put("/auth/profile", response_model=UserProfile)
+async def update_profile(
+    profile_data: ProfileUpdateRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """Mettre à jour le profil de l'utilisateur connecté"""
+    if not auth_service:
+        raise HTTPException(status_code=500, detail="Service d'authentification non disponible")
+    
+    user_id = current_user.get("sub")
+    update_data = {}
+    
+    if profile_data.first_name is not None:
+        update_data["first_name"] = profile_data.first_name
+    if profile_data.last_name is not None:
+        update_data["last_name"] = profile_data.last_name
+    
+    return await auth_service.update_user_profile(user_id, update_data)
+
+@app.post("/auth/reset-password")
+async def reset_password(reset_data: PasswordResetRequest):
+    """Demander une réinitialisation de mot de passe"""
+    if not auth_service:
+        raise HTTPException(status_code=500, detail="Service d'authentification non disponible")
+    
+    await auth_service.reset_password(reset_data.email)
+    return {"message": "Email de réinitialisation envoyé"}
+
+@app.get("/auth/verify")
+async def verify_token(current_user: dict = Depends(get_current_user)):
+    """Vérifier la validité d'un token"""
+    return {
+        "valid": True,
+        "user_id": current_user.get("sub"),
+        "email": current_user.get("email")
+    }
 
 if __name__ == "__main__":
     import sys

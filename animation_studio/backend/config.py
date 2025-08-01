@@ -31,6 +31,9 @@ class Config:
     PORT = int(os.getenv("PORT", "8007"))
     CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
     
+    # JWT Authentication
+    JWT_SECRET = os.getenv("JWT_SECRET", "your-super-secret-jwt-key-change-in-production")
+    
     # Cache Settings
     CACHE_DIR = Path(os.getenv("CACHE_DIR", "../cache"))
     MAX_CACHE_SIZE_GB = int(os.getenv("MAX_CACHE_SIZE_GB", "10"))

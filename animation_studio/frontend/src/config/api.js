@@ -1,4 +1,4 @@
-export const API_BASE_URL = 'http://localhost:8011';
+export const API_BASE_URL = 'http://localhost:8007';
 
 export const API_ENDPOINTS = {
   diagnostic: `${API_BASE_URL}/diagnostic`,
