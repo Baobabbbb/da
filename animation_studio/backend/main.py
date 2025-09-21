@@ -13,6 +13,7 @@ from models.schemas import (
     DiagnosticResponse, AnimationTheme, AnimationDuration
 )
 from services.animation_pipeline import AnimationPipeline
+from services.real_animation_generator import RealAnimationGenerator
 
 # Import des modules d'authentification JWT
 try:
@@ -216,37 +217,145 @@ async def get_animation_status(animation_id: str):
         raise HTTPException(status_code=500, detail=f"Erreur récupération statut: {str(e)}")
 
 @app.post("/generate-quick")
-async def generate_quick_animation(theme: str, duration: int):
-    """Endpoint simplifié pour génération rapide"""
+async def generate_quick_animation(request_body: dict):
+    """Endpoint simplifié pour génération rapide - Compatible avec frontend"""
     try:
-        # Valider les paramètres
-        if theme not in ["space", "nature", "adventure", "animals", "magic", "friendship"]:
-            raise HTTPException(status_code=400, detail="Thème non supporté")
+        # Extraire les paramètres du JSON body
+        theme = request_body.get("theme", "space")
+        duration = request_body.get("duration", 30)
         
-        if duration not in [30, 60, 120, 180, 240, 300]:
-            raise HTTPException(status_code=400, detail="Durée non supportée")
+        print(f"🎬 VRAIE Génération DA: {theme} / {duration}s")
         
-        # Créer la requête
-        request = AnimationRequest(
-            theme=AnimationTheme(theme),
-            duration=AnimationDuration(duration)
-        )
+        # Créer task ID
+        import uuid
+        import time
+        task_id = str(uuid.uuid4())
         
-        # Générer
-        result = await pipeline.generate_animation(request)
+        # Utiliser le nouveau générateur réel
+        generator = RealAnimationGenerator()
         
-        return {
-            "animation_id": result.animation_id,
-            "status": result.status.value,
-            "final_video_url": result.final_video_url,
-            "processing_time": result.processing_time,
-            "story_idea": result.story_idea.dict() if result.story_idea else None
+        # Stocker les informations de la tâche
+        if not hasattr(app.state, 'task_storage'):
+            app.state.task_storage = {}
+            
+        app.state.task_storage[task_id] = {
+            "start_time": time.time(),
+            "theme": theme,
+            "duration": duration,
+            "status": "processing"
         }
         
+        # Lancer la génération en arrière-plan
+        import asyncio
+        asyncio.create_task(generate_real_animation_task(task_id, theme, duration))
+        
+        return {
+            "task_id": task_id,
+            "status": "processing",
+            "message": f"Animation '{theme}' en cours de génération RÉELLE avec APIs...",
+            "estimated_time": "5-7 minutes",
+            "theme": theme,
+            "duration": duration
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur génération rapide: {str(e)}")
+
+async def generate_real_animation_task(task_id: str, theme: str, duration: int):
+    """Tâche en arrière-plan pour la génération réelle d'animation"""
+    try:
+        print(f"🚀 Démarrage génération réelle pour {task_id}")
+        
+        # Mettre à jour le statut
+        app.state.task_storage[task_id]["status"] = "generating"
+        
+        # Créer le générateur réel
+        generator = RealAnimationGenerator()
+        
+        # Générer l'animation complète (5-7 minutes)
+        animation_result = await generator.generate_complete_animation(theme, duration)
+        
+        # Stocker le résultat
+        app.state.task_storage[task_id]["result"] = animation_result
+        app.state.task_storage[task_id]["status"] = "completed"
+        
+        print(f"✅ Animation {task_id} générée avec succès!")
+        
+    except Exception as e:
+        print(f"❌ Erreur génération {task_id}: {e}")
+        app.state.task_storage[task_id]["status"] = "failed" 
+        app.state.task_storage[task_id]["error"] = str(e)
+
+@app.get("/status/{task_id}")
+async def get_animation_status(task_id: str):
+    """Récupère le statut RÉEL d'une tâche d'animation"""
+    try:
+        # Vérifier si la tâche existe
+        if not hasattr(app.state, 'task_storage') or task_id not in app.state.task_storage:
+            raise HTTPException(status_code=404, detail="Tâche non trouvée")
+        
+        task_info = app.state.task_storage[task_id]
+        status = task_info.get("status", "processing")
+        
+        print(f"📊 Statut RÉEL demandé pour {task_id}: {status}")
+        
+        if status == "processing" or status == "generating":
+            # Encore en traitement RÉEL
+            import time
+            current_time = time.time()
+            elapsed_seconds = current_time - task_info["start_time"]
+            
+            # Estimation temps réel : 5-7 minutes
+            estimated_duration = 400  # 6.5 minutes
+            progress = min(int((elapsed_seconds / estimated_duration) * 100), 95)
+            
+            return {
+                "type": "result", 
+                "data": {
+                    "task_id": task_id,
+                    "status": "processing",
+                    "progress": progress,
+                    "message": f"Génération RÉELLE en cours... {progress}%",
+                    "estimated_remaining": max(int(estimated_duration - elapsed_seconds), 30)
+                }
+            }
+            
+        elif status == "completed":
+            # Animation RÉELLE terminée !
+            animation_result = task_info.get("result", {})
+            return {
+                "type": "result",
+                "data": animation_result
+            }
+            
+        elif status == "failed":
+            # Erreur de génération
+            error_msg = task_info.get("error", "Erreur inconnue")
+            return {
+                "type": "result",
+                "data": {
+                    "task_id": task_id,
+                    "status": "failed",
+                    "error": error_msg,
+                    "message": f"Échec de la génération: {error_msg}"
+                }
+            }
+            
+        else:
+            # Statut inconnu
+            return {
+                "type": "result", 
+                "data": {
+                    "task_id": task_id,
+                    "status": "unknown",
+                    "message": f"Statut inconnu: {status}"
+                }
+            }
+            
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur génération rapide: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erreur récupération statut: {str(e)}")
 
 @app.get("/health")
 async def health_check():
