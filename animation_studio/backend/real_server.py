@@ -188,20 +188,34 @@ async def run_animation_generation(animation_id: str, theme: str, duration: int)
         print(f"Erreur génération {animation_id}: {e}")
 
 @app.post("/generate-quick")
-async def generate_quick_demo(theme: str, duration: int):
-    """Version de démonstration rapide (pour les tests)"""
-    return {
-        "animation_id": "demo-123",
-        "status": "completed",
-        "final_video_url": "https://sample-videos.com/zip/10/mp4/SampleVideo_360x240_5mb.mp4",
-        "processing_time": 60,
-        "story_idea": {
-            "idea": f"Une aventure magique dans l'univers {theme}",
-            "caption": f"Animation {theme} créée avec l'IA ! #animation #{theme}",
-            "environment": f"Un monde coloré de {theme}",
-            "sound": "Musique douce et effets sonores mélodieux"
+async def generate_quick_real(request_body: dict):
+    """Génération RÉELLE avec pipeline seedance complet"""
+    try:
+        # Extraire paramètres du JSON body
+        theme = request_body.get("theme", "space")
+        duration = request_body.get("duration", 30)
+        
+        print(f"🎬 GÉNÉRATION RÉELLE SEEDANCE: {theme} / {duration}s")
+        
+        # Créer animation ID
+        animation_id = str(uuid.uuid4())
+        
+        # Lancer génération réelle en arrière-plan
+        asyncio.create_task(run_animation_generation(animation_id, theme, duration))
+        
+        # Retourner immédiatement avec format compatible frontend
+        return {
+            "task_id": animation_id,
+            "status": "processing",
+            "message": f"🚀 Animation '{theme}' en cours de génération RÉELLE avec seedance workflow...",
+            "estimated_time": "5-7 minutes",
+            "theme": theme,
+            "duration": duration
         }
-    }
+        
+    except Exception as e:
+        print(f"❌ Erreur generate-quick: {e}")
+        raise HTTPException(status_code=500, detail=f"Erreur génération: {str(e)}")
 
 if __name__ == "__main__":
     print("🚀 Animation Studio - Serveur IA complet - Port 8007")
