@@ -125,13 +125,57 @@ async def generate_animation(request: AnimationRequest):
     
     return {"animation_id": animation_id, "status": "started"}
 
-@app.get("/status/{animation_id}")
-async def get_generation_status(animation_id: str):
-    """Obtenir le statut de génération d'une animation"""
-    if animation_id not in generation_tasks:
-        raise HTTPException(status_code=404, detail="Animation ID non trouvé")
+@app.post("/generate-quick")
+async def generate_quick_animation(request_body: dict):
+    """Endpoint compatible avec le frontend - génération rapide"""
+    try:
+        # Extraire les paramètres du JSON body
+        theme = request_body.get("theme", "space")
+        duration = request_body.get("duration", 30)
+        
+        print(f"🎬 VRAIE Génération via /generate-quick: {theme} / {duration}s")
+        
+        # Créer la requête standard
+        animation_request = AnimationRequest(theme=theme, duration=duration)
+        
+        # Utiliser la même logique que /generate
+        result = await generate_animation(animation_request)
+        
+        # Adapter le format de réponse pour le frontend
+        return {
+            "task_id": result["animation_id"],
+            "status": "processing", 
+            "message": f"Animation '{theme}' en cours de génération RÉELLE avec seedance...",
+            "estimated_time": "5-7 minutes",
+            "theme": theme,
+            "duration": duration
+        }
+        
+    except Exception as e:
+        print(f"❌ Erreur generate-quick: {e}")
+        raise HTTPException(status_code=500, detail=f"Erreur génération: {str(e)}")
+
+@app.get("/status/{task_id}")
+async def get_generation_status(task_id: str):
+    """Obtenir le statut de génération d'une animation - Compatible frontend"""
+    if task_id not in generation_tasks:
+        raise HTTPException(status_code=404, detail="Tâche non trouvée")
     
-    return generation_tasks[animation_id]
+    task_status = generation_tasks[task_id]
+    
+    # Adapter le format pour le frontend qui attend un format spécifique
+    return {
+        "type": "result",
+        "data": {
+            "task_id": task_id,
+            "status": task_status.status,
+            "progress": task_status.progress,
+            "message": task_status.current_step,
+            "final_video_url": task_status.final_video_url if hasattr(task_status, 'final_video_url') else None
+        }
+    }
+
+# Route renommée pour compatibilité frontend (task_id au lieu d'animation_id)
 
 async def run_real_animation_generation(animation_id: str, theme: str, duration: int):
     """Génération réelle avec les vraies APIs d'IA"""
