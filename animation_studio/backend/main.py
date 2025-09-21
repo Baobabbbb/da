@@ -496,4 +496,4 @@ if __name__ == "__main__":
         reload=False,  # Désactivé pour éviter les conflits d'imports
         log_level="warning",  # Mode rapide
         access_log=False      # Désactiver logs d'accès
-    ) 
+    ) # FORCE RAILWAY REFRESH Sun, Sep 21, 2025  1:52:36 PM
